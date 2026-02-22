@@ -7,35 +7,40 @@ st.set_page_config(page_title="SmartSave PRO", page_icon="💎", layout="wide")
 # Google Sheets Bağlantısı
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Verileri oku (Eğer tablo boşsa hata vermemesi için try-except)
+# Mevcut verileri çekmeye çalış, yoksa boş tablo oluştur
 try:
     df = conn.read()
+    # Eğer tablo tamamen boşsa sütunları tanımla
+    if df.empty:
+        df = pd.DataFrame(columns=["İsim", "Kategori", "Miktar"])
 except:
     df = pd.DataFrame(columns=["İsim", "Kategori", "Miktar"])
 
-st.title("💎 SmartSave PRO: Kalıcı Hafıza")
+st.title("💎 SmartSave PRO")
 
 # --- GİRİŞ FORMU ---
 with st.form(key="harcama_formu"):
-    col1, col2, col3 = st.columns([2, 2, 1])
-    with col1:
+    c1, c2, c3 = st.columns([2, 2, 1])
+    with c1:
         isim = st.text_input("Harcama Kalemi")
-    with col2:
+    with c2:
         kategori = st.selectbox("Kategori", ["🍔 Yemek", "🛒 Market", "🚌 Ulaşım", "🎮 Eğlence", "📈 Yatırım"])
-    with col3:
+    with c3:
         miktar = st.number_input("Tutar (TL)", min_value=1)
     
     submit = st.form_submit_button("Kalıcı Olarak Kaydet ✨")
 
-if submit:
+if submit and isim:
     yeni_satir = pd.DataFrame([{"İsim": isim, "Kategori": kategori, "Miktar": miktar}])
     df = pd.concat([df, yeni_satir], ignore_index=True)
-    conn.update(worksheet="Sayfa1", data=df) # Google Tablo'ndaki sayfa adı 'Sayfa1' değilse değiştir
-    st.success("Harcama Google Tablo'ya işlendi!")
+    
+    # Tablodaki İLK sayfaya veriyi yaz (isimden bağımsız olması için)
+    conn.update(data=df)
+    st.success("Harcama kaydedildi! Google Tablo'nu kontrol et.")
     st.balloons()
 
-# --- GÖRSELLEŞTİRME ---
+# --- ANALİZ ---
 if not df.empty:
     st.divider()
-    st.metric("Toplam Birikmiş Harcama", f"{df['Miktar'].sum()} TL")
+    st.metric("Toplam Harcama", f"{df['Miktar'].sum()} TL")
     st.bar_chart(df.set_index('Kategori')['Miktar'])
