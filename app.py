@@ -12,7 +12,7 @@ if not st.session_state.giris_yapildi:
     st.set_page_config(page_title="SmartSave Lock", page_icon="🔐")
     col_p1, col_p2, col_p3 = st.columns([1,2,1])
     with col_p2:
-        st.markdown("<h2 style='text-align: center;'>🔐 KASA KİLİDİ</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>🔐 GÜVENLİ GİRİŞ</h2>", unsafe_allow_html=True)
         pin = st.text_input("", type="password", placeholder="****")
         if st.button("Sistemi Aç", use_container_width=True):
             if pin == DOGRU_PIN:
@@ -20,21 +20,28 @@ if not st.session_state.giris_yapildi:
                 st.rerun()
     st.stop()
 
-st.set_page_config(page_title="SmartSave v7.5", page_icon="📈", layout="wide")
+st.set_page_config(page_title="SmartSave v7.6", page_icon="💎", layout="wide")
 
 DATA_FILE = "finans_verileri.csv"
 CONFIG_FILE = "ayarlar.txt"
 
-# --- AYARLARI YÜKLE (HATA GİDERİLMİŞ VERSİYON) ---
+# --- OTOMATİK İKON FONKSİYONU ---
+def ikon_atama(metin):
+    sozluk = {
+        "market": "🛒", "yemek": "🍔", "döner": "🌯", "kira": "🏠", "fatura": "🔌",
+        "su": "💧", "elektrik": "⚡", "internet": "🌐", "ulaşım": "🚌", "kart": "💳",
+        "oyun": "🎮", "maaş": "💰", "yatırım": "🚀", "giyim": "👕", "spor": "🏃"
+    }
+    for anahtar, ikon in sozluk.items():
+        if anahtar in metin.lower(): return f"{ikon} {metin}"
+    return f"✨ {metin}"
+
+# --- AYARLARI YÜKLE ---
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, "r") as f:
-        try:
-            # Okunan değeri tam sayıya (int) çeviriyoruz
-            kayitli_fiyat = int(float(f.read().strip()))
-        except:
-            kayitli_fiyat = 75000
-else:
-    kayitli_fiyat = 75000
+        try: kayitli_fiyat = int(float(f.read().strip()))
+        except: kayitli_fiyat = 75000
+else: kayitli_fiyat = 75000
 
 # --- VERİ YÜKLEME ---
 if os.path.exists(DATA_FILE):
@@ -46,29 +53,25 @@ else:
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("📈 Strateji Merkezi")
-    
-    # Hata Giderici: value kısmını int() ile zorluyoruz
-    yeni_fiyat = st.number_input("iPhone Hedef Fiyatı (TL)", value=int(kayitli_fiyat), step=1000)
-    
-    # Fiyat değiştiyse kaydet
+    st.title("💎 SmartSave PRO")
+    yeni_fiyat = st.number_input("iPhone Hedef Fiyatı", value=int(kayitli_fiyat), step=1000)
     if yeni_fiyat != kayitli_fiyat:
-        with open(CONFIG_FILE, "w") as f:
-            f.write(str(int(yeni_fiyat)))
+        with open(CONFIG_FILE, "w") as f: f.write(str(int(yeni_fiyat)))
         st.rerun()
     
     st.divider()
-    with st.form("hizli_kayit_v75", clear_on_submit=True):
-        st.subheader("İşlem Ekle")
+    with st.form("hizli_kayit_v76", clear_on_submit=True):
+        st.subheader("Yeni İşlem")
         tur = st.selectbox("Tür", ["Gider 🔻", "Gelir 🔺"])
-        isim = st.text_input("Açıklama")
+        isim_input = st.text_input("Açıklama")
         kat = st.selectbox("Kategori", ["🍔 Yemek", "🛒 Market", "🚌 Ulaşım", "🎮 Eğlence", "🏠 Kira/Fatura", "👕 Giyim", "💵 Maaş", "🚀 Yatırım"])
         tip_secimi = st.selectbox("Harcama Tipi", ["Zorunlu ✅", "Keyfi ✨"]) if "Gider" in tur else "Gelir"
         tutar = st.number_input("Tutar", min_value=1, step=1)
         
-        if st.form_submit_button("Sisteme İşle"):
+        if st.form_submit_button("Sisteme İşle ✨"):
+            isim_ikonlu = ikon_atama(isim_input)
             tarih_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            yeni = pd.DataFrame([{"Tarih": tarih_str, "Tür": "Gider" if "Gider" in tur else "Gelir", "İsim": isim, "Kategori": kat, "Miktar": int(tutar), "Tip": tip_secimi}])
+            yeni = pd.DataFrame([{"Tarih": tarih_str, "Tür": "Gider" if "Gider" in tur else "Gelir", "İsim": isim_ikonlu, "Kategori": kat, "Miktar": int(tutar), "Tip": tip_secimi}])
             df = pd.concat([df, yeni], ignore_index=True)
             df.to_csv(DATA_FILE, index=False)
             st.rerun()
@@ -77,34 +80,35 @@ with st.sidebar:
 toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum()
 toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum()
 net_bakiye = toplam_gelir - toplam_gider
+gun_sayisi = ( (datetime.now().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1) - datetime.now().date() ).days + 1
+gunluk_limit = max((net_bakiye / gun_sayisi), 0)
 
-# --- GÜNLÜK LİMİT ---
-bugun = datetime.now().date()
-ay_sonu = (bugun.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-kalan_gun = (ay_sonu - bugun).days + 1
-gunluk_limit = max((net_bakiye / kalan_gun), 0) if kalan_gun > 0 else 0
-
-# --- DASHBOARD ---
-st.markdown(f"### 🎯 iPhone Hedefi (%{min((net_bakiye/yeni_fiyat)*100, 100):.1f} - {int(yeni_fiyat):,} TL)")
+# --- ŞIK DASHBOARD ---
+st.markdown(f"### 🎯 iPhone Yolculuğu: %{min((net_bakiye/yeni_fiyat)*100, 100):.1f}")
 st.progress(min(net_bakiye/yeni_fiyat, 1.0))
 
 c1, c2, c3 = st.columns(3)
-c1.metric("Net Bakiye", f"₺{int(net_bakiye):,}")
-c2.metric("Günlük Limitim", f"₺{int(gunluk_limit):,}")
+c1.metric("Net Kasa", f"₺{int(net_bakiye):,}", help="Cebindeki net para.")
+c2.metric("Günlük Limit", f"₺{int(gunluk_limit):,}", delta="iPhone Modu", delta_color="normal")
 c3.metric("Kalan Hedef", f"₺{max(int(yeni_fiyat) - int(net_bakiye), 0):,}")
 
-# GRAFİKLER
+
+
+# --- GRAFİKLER ---
 col_l, col_r = st.columns(2)
 with col_l:
     if not df[df["Tür"]=="Gider"].empty:
-        fig = px.pie(df[df["Tür"]=="Gider"], names="Tip", values="Miktar", hole=0.6, title="Harcama Karakteri")
+        fig = px.pie(df[df["Tür"]=="Gider"], names="Kategori", values="Miktar", hole=0.6, 
+                     color_discrete_sequence=px.colors.qualitative.Pastel, title="Gider Dağılımı")
         st.plotly_chart(fig, use_container_width=True)
 with col_r:
     df_sorted = df.sort_values("Tarih")
     df_sorted["Bakiye"] = df_sorted.apply(lambda x: x["Miktar"] if x["Tür"]=="Gelir" else -x["Miktar"], axis=1).cumsum()
-    fig_line = px.area(df_sorted, x="Tarih", y="Bakiye", title="Birikim Seyri")
+    fig_line = px.line(df_sorted, x="Tarih", y="Bakiye", title="Birikim Grafiği", markers=True)
+    fig_line.update_traces(line_color='#636EFA', fill='tozeroy')
     st.plotly_chart(fig_line, use_container_width=True)
 
 st.divider()
-st.subheader("📜 Tüm Hareketler")
+st.subheader("📜 Hareket Geçmişi")
+# Tabloyu daha profesyonel göster
 st.dataframe(df.iloc[::-1], use_container_width=True, hide_index=True)
