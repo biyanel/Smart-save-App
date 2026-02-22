@@ -20,17 +20,21 @@ if not st.session_state.giris_yapildi:
                 st.rerun()
     st.stop()
 
-st.set_page_config(page_title="SmartSave v7.4", page_icon="📈", layout="wide")
+st.set_page_config(page_title="SmartSave v7.5", page_icon="📈", layout="wide")
 
 DATA_FILE = "finans_verileri.csv"
 CONFIG_FILE = "ayarlar.txt"
 
-# --- AYARLARI YÜKLE (Fiyatı Hatırlama) ---
+# --- AYARLARI YÜKLE (HATA GİDERİLMİŞ VERSİYON) ---
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, "r") as f:
-        kayitli_fiyat = float(f.read())
+        try:
+            # Okunan değeri tam sayıya (int) çeviriyoruz
+            kayitli_fiyat = int(float(f.read().strip()))
+        except:
+            kayitli_fiyat = 75000
 else:
-    kayitli_fiyat = 75000.0 # İlk kurulum için geçici
+    kayitli_fiyat = 75000
 
 # --- VERİ YÜKLEME ---
 if os.path.exists(DATA_FILE):
@@ -44,25 +48,27 @@ else:
 with st.sidebar:
     st.title("📈 Strateji Merkezi")
     
-    # Fiyatı buradan değiştirince dosyaya kaydeder
-    yeni_fiyat = st.number_input("iPhone Hedef Fiyatı (TL)", value=kayitli_fiyat, step=500)
+    # Hata Giderici: value kısmını int() ile zorluyoruz
+    yeni_fiyat = st.number_input("iPhone Hedef Fiyatı (TL)", value=int(kayitli_fiyat), step=1000)
+    
+    # Fiyat değiştiyse kaydet
     if yeni_fiyat != kayitli_fiyat:
         with open(CONFIG_FILE, "w") as f:
-            f.write(str(yeni_fiyat))
+            f.write(str(int(yeni_fiyat)))
         st.rerun()
     
     st.divider()
-    with st.form("hizli_kayit_v74", clear_on_submit=True):
+    with st.form("hizli_kayit_v75", clear_on_submit=True):
         st.subheader("İşlem Ekle")
         tur = st.selectbox("Tür", ["Gider 🔻", "Gelir 🔺"])
         isim = st.text_input("Açıklama")
         kat = st.selectbox("Kategori", ["🍔 Yemek", "🛒 Market", "🚌 Ulaşım", "🎮 Eğlence", "🏠 Kira/Fatura", "👕 Giyim", "💵 Maaş", "🚀 Yatırım"])
         tip_secimi = st.selectbox("Harcama Tipi", ["Zorunlu ✅", "Keyfi ✨"]) if "Gider" in tur else "Gelir"
-        tutar = st.number_input("Tutar", min_value=1)
+        tutar = st.number_input("Tutar", min_value=1, step=1)
         
         if st.form_submit_button("Sisteme İşle"):
             tarih_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            yeni = pd.DataFrame([{"Tarih": tarih_str, "Tür": "Gider" if "Gider" in tur else "Gelir", "İsim": isim, "Kategori": kat, "Miktar": tutar, "Tip": tip_secimi}])
+            yeni = pd.DataFrame([{"Tarih": tarih_str, "Tür": "Gider" if "Gider" in tur else "Gelir", "İsim": isim, "Kategori": kat, "Miktar": int(tutar), "Tip": tip_secimi}])
             df = pd.concat([df, yeni], ignore_index=True)
             df.to_csv(DATA_FILE, index=False)
             st.rerun()
@@ -72,20 +78,20 @@ toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum()
 toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum()
 net_bakiye = toplam_gelir - toplam_gider
 
-# --- GÜNLÜK LİMİT HESABI (YENİ ÖZELLİK) ---
+# --- GÜNLÜK LİMİT ---
 bugun = datetime.now().date()
 ay_sonu = (bugun.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
 kalan_gun = (ay_sonu - bugun).days + 1
 gunluk_limit = max((net_bakiye / kalan_gun), 0) if kalan_gun > 0 else 0
 
 # --- DASHBOARD ---
-st.markdown(f"### 🎯 iPhone Hedefi (%{min((net_bakiye/yeni_fiyat)*100, 100):.1f})")
+st.markdown(f"### 🎯 iPhone Hedefi (%{min((net_bakiye/yeni_fiyat)*100, 100):.1f} - {int(yeni_fiyat):,} TL)")
 st.progress(min(net_bakiye/yeni_fiyat, 1.0))
 
 c1, c2, c3 = st.columns(3)
-c1.metric("Net Bakiye", f"₺{net_bakiye:,}")
-c2.metric("Günlük Harcama Limitim", f"₺{gunluk_limit:,.0f}", help="iPhone hedefine sadık kalmak için bugün harcayabileceğin tutar.")
-c3.metric("Kalan Hedef", f"₺{max(yeni_fiyat - net_bakiye, 0):,}")
+c1.metric("Net Bakiye", f"₺{int(net_bakiye):,}")
+c2.metric("Günlük Limitim", f"₺{int(gunluk_limit):,}")
+c3.metric("Kalan Hedef", f"₺{max(int(yeni_fiyat) - int(net_bakiye), 0):,}")
 
 # GRAFİKLER
 col_l, col_r = st.columns(2)
