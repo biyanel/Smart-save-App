@@ -1,3 +1,9 @@
+import streamlit as st
+import pandas as pd
+import os
+from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
 # --- GÜVENLİK AYARI ---
 DOGRU_PIN = "1234"  # Buraya kendi 4 haneli şifreni yaz!
 
@@ -17,13 +23,6 @@ if not st.session_state.giris_yapildi:
     st.stop() # Şifre doğru değilse kodun geri kalanını çalıştırma!
 
 # --- BURADAN SONRASI MEVCUT KODLARIN (df yükleme, grafikler vs.) ---
-
-import streamlit as st
-import pandas as pd
-import os
-from datetime import datetime
-import plotly.express as px
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="SmartSave v5.2", page_icon="💰", layout="wide")
 
