@@ -1,3 +1,23 @@
+# --- GÜVENLİK AYARI ---
+DOGRU_PIN = "1234"  # Buraya kendi 4 haneli şifreni yaz!
+
+if 'giris_yapildi' not in st.session_state:
+    st.session_state.giris_yapildi = False
+
+if not st.session_state.giris_yapildi:
+    st.title("🔐 SmartSave Koruması")
+    pin = st.text_input("Giriş için 4 haneli PIN giriniz:", type="password")
+    if st.button("Giriş Yap"):
+        if pin == DOGRU_PIN:
+            st.session_state.giris_yapildi = True
+            st.success("Giriş Başarılı!")
+            st.rerun()
+        else:
+            st.error("Hatalı PIN! Tekrar deneyin.")
+    st.stop() # Şifre doğru değilse kodun geri kalanını çalıştırma!
+
+# --- BURADAN SONRASI MEVCUT KODLARIN (df yükleme, grafikler vs.) ---
+
 import streamlit as st
 import pandas as pd
 import os
