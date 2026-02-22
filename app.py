@@ -10,7 +10,7 @@ st.markdown("""
     .main { background-color: #0e1117; }
     .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; border: 1px solid #374151; }
     </style>
-    """, unsafe_allow_stdio=True)
+    """, unsafe_allow_html=True)
 
 st.title("💎 SmartSave PRO: Akıllı Finans")
 st.write("Harcamalarını analiz et, geleceğini inşa et.")
