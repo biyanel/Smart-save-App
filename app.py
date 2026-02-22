@@ -20,7 +20,7 @@ if not st.session_state.giris_yapildi:
                 st.rerun()
     st.stop()
 
-st.set_page_config(page_title="SmartSave v7.7", page_icon="💎", layout="wide")
+st.set_page_config(page_title="SmartSave v7.8", page_icon="💎", layout="wide")
 
 DATA_FILE = "finans_verileri.csv"
 CONFIG_FILE = "ayarlar.txt"
@@ -60,7 +60,7 @@ with st.sidebar:
         st.rerun()
     
     st.divider()
-    with st.form("hizli_kayit_v77", clear_on_submit=True):
+    with st.form("hizli_kayit_v78", clear_on_submit=True):
         st.subheader("Yeni İşlem")
         tur = st.selectbox("Tür", ["Gider 🔻", "Gelir 🔺"])
         isim_input = st.text_input("Açıklama")
@@ -76,12 +76,11 @@ with st.sidebar:
             df.to_csv(DATA_FILE, index=False)
             st.rerun()
 
-# --- ANALİZ VE HATASIZ TARİH HESABI ---
+# --- ANALİZ VE TAHMİN ---
 toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum()
 toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum()
 net_bakiye = toplam_gelir - toplam_gider
 
-# Hata Giderilen Tarih Hesabı
 bugun_dt = datetime.now().date()
 ay_sonu = (bugun_dt.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
 gun_sayisi = (ay_sonu - bugun_dt).days + 1
@@ -96,19 +95,41 @@ c1.metric("Net Kasa", f"₺{int(net_bakiye):,}")
 c2.metric("Günlük Limit", f"₺{int(gunluk_limit):,}")
 c3.metric("Kalan Hedef", f"₺{max(int(yeni_fiyat) - int(net_bakiye), 0):,}")
 
+# --- YENİ: SIZINTI DEDEKTÖRÜ (ISI HARİTASI TARZI BAR) ---
+st.divider()
+st.subheader("🔍 Harcama Sızıntı Dedektörü")
+if not df[df["Tür"]=="Gider"].empty:
+    # Haftalık harcama yoğunluğunu gösteren grafik
+    df['Gun'] = df['Tarih'].dt.day_name()
+    gunluk_gider = df[df["Tür"]=="Gider"].groupby('Gun')['Miktar'].sum().reindex(
+        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    ).fillna(0)
+    
+    fig_leak = px.bar(x=gunluk_gider.index, y=gunluk_gider.values, 
+                      title="Haftanın Hangi Günü Cüzdan Deliniyor?",
+                      labels={'x': 'Gün', 'y': 'Toplam Harcama (TL)'},
+                      color=gunluk_gider.values, color_continuous_scale='Reds')
+    st.plotly_chart(fig_leak, use_container_width=True)
+
+
+
 # --- GRAFİKLER ---
 col_l, col_r = st.columns(2)
 with col_l:
-    if not df[df["Tür"]=="Gider"].empty:
-        fig = px.pie(df[df["Tür"]=="Gider"], names="Kategori", values="Miktar", hole=0.6, 
-                     color_discrete_sequence=px.colors.qualitative.Pastel, title="Harcama Dağılımı")
-        st.plotly_chart(fig, use_container_width=True)
+    st.info("🍕 Kategori Dağılımı")
+    fig_pie = px.pie(df[df["Tür"]=="Gider"], names="Kategori", values="Miktar", hole=0.6)
+    st.plotly_chart(fig_pie, use_container_width=True)
 with col_r:
+    st.info("📈 Birikim Seyri")
     df_sorted = df.sort_values("Tarih")
     df_sorted["Bakiye"] = df_sorted.apply(lambda x: x["Miktar"] if x["Tür"]=="Gelir" else -x["Miktar"], axis=1).cumsum()
-    fig_line = px.line(df_sorted, x="Tarih", y="Bakiye", title="Birikim Grafiği")
+    fig_line = px.area(df_sorted, x="Tarih", y="Bakiye")
     st.plotly_chart(fig_line, use_container_width=True)
 
+# --- GELİŞMİŞ FİLTRELEME ---
 st.divider()
-st.subheader("📜 Hareket Geçmişi")
-st.dataframe(df.iloc[::-1], use_container_width=True, hide_index=True)
+st.subheader("📜 Akıllı Geçmiş ve Filtre")
+secilen_kategoriler = st.multiselect("Kategoriye Göre Bak:", options=df["Kategori"].unique(), default=df["Kategori"].unique())
+filtreli_df = df[df["Kategori"].isin(secilen_kategoriler)]
+
+st.dataframe(filtreli_df.iloc[::-1], use_container_width=True, hide_index=True)
