@@ -4,36 +4,35 @@ import pandas as pd
 
 st.set_page_config(page_title="SmartSave PRO", page_icon="💎")
 
-# Bağlantıyı kur
+# Bağlantı
 conn = st.connection("gsheets", type=GSheetsConnection)
-
-# Veriyi çek (Eğer hata verirse boş bir tablo yarat)
-try:
-    df = conn.read()
-except:
-    df = pd.DataFrame(columns=["İsim", "Kategori", "Miktar"])
 
 st.title("💎 SmartSave PRO")
 
-with st.form(key="form"):
+# Form
+with st.form("ekle_form"):
     isim = st.text_input("Harcama")
-    kat = st.selectbox("Kategori", ["Yemek", "Market", "Ulaşım", "Eğlence", "Yatırım"])
-    mik = st.number_input("Tutar", min_value=1)
-    btn = st.form_submit_button("Kaydet ✨")
+    miktar = st.number_input("Tutar", min_value=1)
+    kaydet = st.form_submit_button("Kaydet ✨")
 
-if btn and isim:
-    yeni = pd.DataFrame([{"İsim": isim, "Kategori": kat, "Miktar": mik}])
-    # Veriyi birleştir
-    if df is not None:
-        df = pd.concat([df, yeni], ignore_index=True)
-    else:
-        df = yeni
-        
-    # VERİYİ YAZ (Hata payını sıfırlamak için en basit komut)
-    conn.update(data=df)
-    st.success("Kaydedildi!")
+if kaydet and isim:
+    # Basit bir veri çerçevesi oluştur
+    yeni_df = pd.DataFrame([{"İsim": isim, "Miktar": miktar}])
+    
+    # Mevcut veriyi oku ve yenisini ekle
+    try:
+        mevcut = conn.read()
+        son_df = pd.concat([mevcut, yeni_df], ignore_index=True)
+    except:
+        son_df = yeni_df
+
+    # TABLOYA YAZ (Burada hata veriyorsa bağlantı hala eskidir)
+    conn.update(data=son_df)
+    st.success("Tebrikler, ilk kalıcı verin kaydedildi!")
     st.balloons()
 
-# Listele
-if df is not None and not df.empty:
-    st.table(df)
+# Göster
+try:
+    st.table(conn.read())
+except:
+    st.info("Henüz veri yok.")
