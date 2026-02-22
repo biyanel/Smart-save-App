@@ -1,52 +1,41 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# Sayfa Ayarları
 st.set_page_config(page_title="SmartSave PRO", page_icon="💎", layout="wide")
 
-# Özel CSS ile "Premium" Görünüm
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; }
-    .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; border: 1px solid #374151; }
-    </style>
-    """, unsafe_allow_html=True)
+# Google Sheets Bağlantısı
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-st.title("💎 SmartSave PRO: Akıllı Finans")
-st.write("Harcamalarını analiz et, geleceğini inşa et.")
+# Verileri oku (Eğer tablo boşsa hata vermemesi için try-except)
+try:
+    df = conn.read()
+except:
+    df = pd.DataFrame(columns=["İsim", "Kategori", "Miktar"])
 
-if 'harcamalar' not in st.session_state:
-    st.session_state.harcamalar = []
+st.title("💎 SmartSave PRO: Kalıcı Hafıza")
 
-# --- GİRİŞ ALANI ---
-with st.container():
+# --- GİRİŞ FORMU ---
+with st.form(key="harcama_formu"):
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
-        isim = st.text_input("Harcama Kalemi", placeholder="Örn: Burger")
+        isim = st.text_input("Harcama Kalemi")
     with col2:
         kategori = st.selectbox("Kategori", ["🍔 Yemek", "🛒 Market", "🚌 Ulaşım", "🎮 Eğlence", "📈 Yatırım"])
     with col3:
         miktar = st.number_input("Tutar (TL)", min_value=1)
-        ekle = st.button("Kaydet ✨", use_container_width=True)
+    
+    submit = st.form_submit_button("Kalıcı Olarak Kaydet ✨")
 
-if ekle:
-    st.session_state.harcamalar.append({"İsim": isim, "Kategori": kategori, "Miktar": miktar})
+if submit:
+    yeni_satir = pd.DataFrame([{"İsim": isim, "Kategori": kategori, "Miktar": miktar}])
+    df = pd.concat([df, yeni_satir], ignore_index=True)
+    conn.update(worksheet="Sayfa1", data=df) # Google Tablo'ndaki sayfa adı 'Sayfa1' değilse değiştir
+    st.success("Harcama Google Tablo'ya işlendi!")
     st.balloons()
 
-# --- ANALİZ ALANI ---
-if st.session_state.harcamalar:
-    df = pd.DataFrame(st.session_state.harcamalar)
-    
-    c1, c2, c3 = st.columns(3)
-    toplam = df['Miktar'].sum()
-    c1.metric("Toplam Harcama", f"{toplam} TL", delta="-5%", delta_color="inverse")
-    
-    # Akıllı Yatırım Hesabı
-    birikim_potansiyeli = toplam * 0.20
-    c2.metric("Birikim Potansiyeli (%20)", f"{birikim_potansiyeli} TL")
-    
-    gelecek_deger = birikim_potansiyeli * 1.15 # %15 yıllık getiri varsayımı
-    c3.metric("1 Yıl Sonraki Değeri", f"{gelecek_deger:.0f} TL")
-
-    st.subheader("📊 Harcama Dağılımı")
+# --- GÖRSELLEŞTİRME ---
+if not df.empty:
+    st.divider()
+    st.metric("Toplam Birikmiş Harcama", f"{df['Miktar'].sum()} TL")
     st.bar_chart(df.set_index('Kategori')['Miktar'])
