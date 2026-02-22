@@ -20,21 +20,24 @@ if not st.session_state.giris_yapildi:
                 st.rerun()
     st.stop()
 
-st.set_page_config(page_title="SmartSave v7.8", page_icon="💎", layout="wide")
+st.set_page_config(page_title="SmartSave v7.9", page_icon="💎", layout="wide")
 
 DATA_FILE = "finans_verileri.csv"
 CONFIG_FILE = "ayarlar.txt"
 
-# --- OTOMATİK İKON FONKSİYONU ---
-def ikon_atama(metin):
+# --- 🧠 AKILLI İKON ASİSTANI ---
+def ikon_bulucu(isim):
     sozluk = {
-        "market": "🛒", "yemek": "🍔", "döner": "🌯", "kira": "🏠", "fatura": "🔌",
-        "su": "💧", "elektrik": "⚡", "internet": "🌐", "ulaşım": "🚌", "kart": "💳",
-        "oyun": "🎮", "maaş": "💰", "yatırım": "🚀", "giyim": "👕", "spor": "🏃"
+        "yemek": "🍔", "döner": "🌯", "kahve": "☕", "market": "🛒", "ekmek": "🍞",
+        "kira": "🏠", "fatura": "🔌", "su": "💧", "elektrik": "⚡", "internet": "🌐",
+        "ulaşım": "🚌", "benzin": "⛽", "kart": "💳", "oyun": "🎮", "maaş": "💰",
+        "yatırım": "🚀", "giyim": "👕", "ayakkabı": "👟", "spor": "🏃", "hediye": "🎁"
     }
+    isim_lower = isim.lower()
     for anahtar, ikon in sozluk.items():
-        if anahtar in metin.lower(): return f"{ikon} {metin}"
-    return f"✨ {metin}"
+        if anahtar in isim_lower:
+            return f"{ikon} {isim}"
+    return f"✨ {isim}"
 
 # --- AYARLARI YÜKLE ---
 if os.path.exists(CONFIG_FILE):
@@ -60,76 +63,60 @@ with st.sidebar:
         st.rerun()
     
     st.divider()
-    with st.form("hizli_kayit_v78", clear_on_submit=True):
-        st.subheader("Yeni İşlem")
+    with st.form("hizli_kayit_v79", clear_on_submit=True):
+        st.subheader("Hızlı İşlem")
         tur = st.selectbox("Tür", ["Gider 🔻", "Gelir 🔺"])
-        isim_input = st.text_input("Açıklama")
+        isim_input = st.text_input("Açıklama (Örn: Kahve)")
         kat = st.selectbox("Kategori", ["🍔 Yemek", "🛒 Market", "🚌 Ulaşım", "🎮 Eğlence", "🏠 Kira/Fatura", "👕 Giyim", "💵 Maaş", "🚀 Yatırım"])
         tip_secimi = st.selectbox("Harcama Tipi", ["Zorunlu ✅", "Keyfi ✨"]) if "Gider" in tur else "Gelir"
         tutar = st.number_input("Tutar", min_value=1, step=1)
         
-        if st.form_submit_button("Sisteme İşle ✨"):
-            isim_ikonlu = ikon_atama(isim_input)
+        if st.form_submit_button("Kaydet ✨"):
+            isim_ikonlu = ikon_bulucu(isim_input)
             tarih_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             yeni = pd.DataFrame([{"Tarih": tarih_str, "Tür": "Gider" if "Gider" in tur else "Gelir", "İsim": isim_ikonlu, "Kategori": kat, "Miktar": int(tutar), "Tip": tip_secimi}])
             df = pd.concat([df, yeni], ignore_index=True)
             df.to_csv(DATA_FILE, index=False)
             st.rerun()
 
-# --- ANALİZ VE TAHMİN ---
+# --- DASHBOARD ANALİZ ---
 toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum()
 toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum()
 net_bakiye = toplam_gelir - toplam_gider
 
-bugun_dt = datetime.now().date()
-ay_sonu = (bugun_dt.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-gun_sayisi = (ay_sonu - bugun_dt).days + 1
-gunluk_limit = max((net_bakiye / gun_sayisi), 0) if gun_sayisi > 0 else 0
-
-# --- DASHBOARD ---
 st.markdown(f"### 🎯 iPhone Yolculuğu: %{min((net_bakiye/yeni_fiyat)*100, 100):.1f}")
 st.progress(min(net_bakiye/yeni_fiyat, 1.0))
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Net Kasa", f"₺{int(net_bakiye):,}")
-c2.metric("Günlük Limit", f"₺{int(gunluk_limit):,}")
-c3.metric("Kalan Hedef", f"₺{max(int(yeni_fiyat) - int(net_bakiye), 0):,}")
+c2.metric("Toplam Gelir", f"₺{int(toplam_gelir):,}")
+c3.metric("Toplam Gider", f"₺{int(toplam_gider):,}")
 
-# --- YENİ: SIZINTI DEDEKTÖRÜ (ISI HARİTASI TARZI BAR) ---
+# --- 📊 PREMIUM GRAFİKLER ---
 st.divider()
-st.subheader("🔍 Harcama Sızıntı Dedektörü")
-if not df[df["Tür"]=="Gider"].empty:
-    # Haftalık harcama yoğunluğunu gösteren grafik
-    df['Gun'] = df['Tarih'].dt.day_name()
-    gunluk_gider = df[df["Tür"]=="Gider"].groupby('Gun')['Miktar'].sum().reindex(
-        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    ).fillna(0)
-    
-    fig_leak = px.bar(x=gunluk_gider.index, y=gunluk_gider.values, 
-                      title="Haftanın Hangi Günü Cüzdan Deliniyor?",
-                      labels={'x': 'Gün', 'y': 'Toplam Harcama (TL)'},
-                      color=gunluk_gider.values, color_continuous_scale='Reds')
-    st.plotly_chart(fig_leak, use_container_width=True)
-
-
-
-# --- GRAFİKLER ---
 col_l, col_r = st.columns(2)
+
 with col_l:
-    st.info("🍕 Kategori Dağılımı")
-    fig_pie = px.pie(df[df["Tür"]=="Gider"], names="Kategori", values="Miktar", hole=0.6)
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.write("### 🍩 Gider Dağılımı")
+    if not df[df["Tür"]=="Gider"].empty:
+        # Şık bir Donut Chart
+        fig_donut = px.pie(df[df["Tür"]=="Gider"], names="Kategori", values="Miktar", 
+                           hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
+        fig_donut.update_traces(textinfo='percent+label', marker=dict(line=dict(color='#000000', width=1)))
+        st.plotly_chart(fig_donut, use_container_width=True)
+
+
+
 with col_r:
-    st.info("📈 Birikim Seyri")
+    st.write("### 📈 Birikim Gelişimi")
     df_sorted = df.sort_values("Tarih")
     df_sorted["Bakiye"] = df_sorted.apply(lambda x: x["Miktar"] if x["Tür"]=="Gelir" else -x["Miktar"], axis=1).cumsum()
-    fig_line = px.area(df_sorted, x="Tarih", y="Bakiye")
-    st.plotly_chart(fig_line, use_container_width=True)
+    # Alan Grafiği
+    fig_area = px.area(df_sorted, x="Tarih", y="Bakiye", color_discrete_sequence=['#00CC96'])
+    fig_area.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    st.plotly_chart(fig_area, use_container_width=True)
 
-# --- GELİŞMİŞ FİLTRELEME ---
+# --- ŞIK TABLO ---
 st.divider()
-st.subheader("📜 Akıllı Geçmiş ve Filtre")
-secilen_kategoriler = st.multiselect("Kategoriye Göre Bak:", options=df["Kategori"].unique(), default=df["Kategori"].unique())
-filtreli_df = df[df["Kategori"].isin(secilen_kategoriler)]
-
-st.dataframe(filtreli_df.iloc[::-1], use_container_width=True, hide_index=True)
+st.subheader("📜 Son İşlemler")
+st.dataframe(df.iloc[::-1], use_container_width=True, hide_index=True)
