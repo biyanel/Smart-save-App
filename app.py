@@ -20,7 +20,7 @@ if not st.session_state.giris_yapildi:
                 st.rerun()
     st.stop()
 
-st.set_page_config(page_title="SmartSave v7.6", page_icon="💎", layout="wide")
+st.set_page_config(page_title="SmartSave v7.7", page_icon="💎", layout="wide")
 
 DATA_FILE = "finans_verileri.csv"
 CONFIG_FILE = "ayarlar.txt"
@@ -60,7 +60,7 @@ with st.sidebar:
         st.rerun()
     
     st.divider()
-    with st.form("hizli_kayit_v76", clear_on_submit=True):
+    with st.form("hizli_kayit_v77", clear_on_submit=True):
         st.subheader("Yeni İşlem")
         tur = st.selectbox("Tür", ["Gider 🔻", "Gelir 🔺"])
         isim_input = st.text_input("Açıklama")
@@ -76,39 +76,39 @@ with st.sidebar:
             df.to_csv(DATA_FILE, index=False)
             st.rerun()
 
-# --- ANALİZ ---
+# --- ANALİZ VE HATASIZ TARİH HESABI ---
 toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum()
 toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum()
 net_bakiye = toplam_gelir - toplam_gider
-gun_sayisi = ( (datetime.now().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1) - datetime.now().date() ).days + 1
-gunluk_limit = max((net_bakiye / gun_sayisi), 0)
 
-# --- ŞIK DASHBOARD ---
+# Hata Giderilen Tarih Hesabı
+bugun_dt = datetime.now().date()
+ay_sonu = (bugun_dt.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+gun_sayisi = (ay_sonu - bugun_dt).days + 1
+gunluk_limit = max((net_bakiye / gun_sayisi), 0) if gun_sayisi > 0 else 0
+
+# --- DASHBOARD ---
 st.markdown(f"### 🎯 iPhone Yolculuğu: %{min((net_bakiye/yeni_fiyat)*100, 100):.1f}")
 st.progress(min(net_bakiye/yeni_fiyat, 1.0))
 
 c1, c2, c3 = st.columns(3)
-c1.metric("Net Kasa", f"₺{int(net_bakiye):,}", help="Cebindeki net para.")
-c2.metric("Günlük Limit", f"₺{int(gunluk_limit):,}", delta="iPhone Modu", delta_color="normal")
+c1.metric("Net Kasa", f"₺{int(net_bakiye):,}")
+c2.metric("Günlük Limit", f"₺{int(gunluk_limit):,}")
 c3.metric("Kalan Hedef", f"₺{max(int(yeni_fiyat) - int(net_bakiye), 0):,}")
-
-
 
 # --- GRAFİKLER ---
 col_l, col_r = st.columns(2)
 with col_l:
     if not df[df["Tür"]=="Gider"].empty:
         fig = px.pie(df[df["Tür"]=="Gider"], names="Kategori", values="Miktar", hole=0.6, 
-                     color_discrete_sequence=px.colors.qualitative.Pastel, title="Gider Dağılımı")
+                     color_discrete_sequence=px.colors.qualitative.Pastel, title="Harcama Dağılımı")
         st.plotly_chart(fig, use_container_width=True)
 with col_r:
     df_sorted = df.sort_values("Tarih")
     df_sorted["Bakiye"] = df_sorted.apply(lambda x: x["Miktar"] if x["Tür"]=="Gelir" else -x["Miktar"], axis=1).cumsum()
-    fig_line = px.line(df_sorted, x="Tarih", y="Bakiye", title="Birikim Grafiği", markers=True)
-    fig_line.update_traces(line_color='#636EFA', fill='tozeroy')
+    fig_line = px.line(df_sorted, x="Tarih", y="Bakiye", title="Birikim Grafiği")
     st.plotly_chart(fig_line, use_container_width=True)
 
 st.divider()
 st.subheader("📜 Hareket Geçmişi")
-# Tabloyu daha profesyonel göster
 st.dataframe(df.iloc[::-1], use_container_width=True, hide_index=True)
